@@ -1,0 +1,6 @@
+fastapi
+torch
+ultralytics
+supervision
+cv2
+numpy

@@ -5,3 +5,4 @@ supervision
 opencv-contrib-python
 opencv-python
 numpy
+uvicorn

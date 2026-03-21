@@ -44,7 +44,7 @@ async def detect(file: UploadFile):
     masks = results[0].masks  # Accessing the masks from results
 
     if boxes is None or len(boxes) == 0:
-        return {"mask": np.zeros(img.shape[:2], dtype=np.uint8).tolist(), "locations": []}
+        return {"mask": np.zeros(img.shape[:2], dtype=np.uint8).tolist(),"mask_inv":np.ones(img.shape[:2], dtype=np.uint8).tolist(), "locations": []}
 
     class_ids = boxes.cls
     scores = boxes.conf
@@ -56,7 +56,7 @@ async def detect(file: UploadFile):
     valid_indices = torch.where(valid_mask)[0]
 
     if valid_indices.numel() == 0:
-        return {"mask": np.zeros(img.shape[:2], dtype=np.uint8).tolist(), "locations": []}
+        return {"mask": np.zeros(img.shape[:2], dtype=np.uint8).tolist(),"mask_inv":np.ones(img.shape[:2], dtype=np.uint8).tolist(), "locations": []}
 
     # Apply filtering to boxes and masks
     filtered_class_ids = class_ids[valid_indices].to(torch.int16)
@@ -80,4 +80,4 @@ async def detect(file: UploadFile):
     combined_mask = (torch.max(masks_resized, dim=0).value).astype(torch.uint8)*255
     
 
-    return {"mask": combined_mask.tolist(), "locations": tracked_detections.xyxy.cpu().numpy().tolist()}
+    return {"mask": combined_mask.tolist(), "mask_inv": ((combined_mask==0).astype(torch.uint8)*255).tolist(), "locations": tracked_detections.xyxy.cpu().numpy().tolist()}

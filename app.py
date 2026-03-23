@@ -52,7 +52,7 @@ def _empty_response(image_shape: tuple[int, int]) -> dict:
 #health check
 @app.get("/ping")
 def ping():
-    return {"status": "ok"}
+    return Response(status_code=200)
 
 @app.post("/invocations")
 async def invocations(request:Request):

@@ -1,2 +1,9 @@
 # experience_day_deployment
-This code for deployment on AWS Sagemaker for YOLO inference app
+
+YOLO inference service packaged for Amazon SageMaker endpoint deployment.
+
+## Inference endpoints
+
+- `GET /ping` - health check endpoint used by SageMaker.
+- `POST /invocations` - primary SageMaker inference endpoint.
+- `POST /detect` - backward-compatible alias for existing clients.

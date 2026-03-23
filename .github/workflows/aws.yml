@@ -2,7 +2,7 @@ name: Deploy to Amazon SageMaker Endpoint
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main","sagemaker"]
   workflow_dispatch:
 
 env:

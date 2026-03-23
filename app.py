@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, UploadFile, Request
 import base64
 
 import cv2
@@ -55,8 +55,8 @@ def ping():
     return {"status": "ok"}
 
 @app.post("/invocations")
-async def invocations(file: UploadFile):
-    image_bytes = await file.read()
+async def invocations(request:Request):
+    image_bytes = await request.body()
     img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
 
     if img is None:

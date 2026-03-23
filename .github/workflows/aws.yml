@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: ap-southeast-2
+  AWS_REGION: ap-southeast-1
   ECR_REPOSITORY: experienceday/vrapp
   SAGEMAKER_MODEL_NAME: experienceday-vrapp-model
   SAGEMAKER_ENDPOINT_CONFIG_NAME: experienceday-vrapp-endpoint-config

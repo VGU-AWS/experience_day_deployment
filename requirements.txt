@@ -1,7 +1,6 @@
 fastapi
 torch
-ultralytics
-supervision
+transformers
 pillow
 numpy
 uvicorn

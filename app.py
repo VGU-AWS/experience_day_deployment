@@ -28,7 +28,7 @@ else:
 app = FastAPI()
 byte_tracker = sv.ByteTrack()
 byte_tracker.reset()
-seg_model_name = 'yolo11l-seg'
+seg_model_name = 'yolo11x-seg'
 seg_model = YOLO(f'{seg_model_name}.pt')
 
 #health status

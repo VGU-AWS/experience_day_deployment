@@ -15,6 +15,7 @@ env:
   SAGEMAKER_INSTANCE_TYPE: ml.g4dn.xlarge
   SAGEMAKER_INSTANCE_COUNT: '1'
 
+
 permissions:
   contents: read
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, Response
 import cv2
 import numpy as np
 from ultralytics import YOLO
@@ -34,7 +34,7 @@ seg_model = YOLO(f'{seg_model_name}.pt')
 #health status
 @app.post("/ping")
 def ping():
-    return {"status":"ok"}
+    return Response(status_code=200)
 
 @app.post("/detect")
 async def detect(file: UploadFile):

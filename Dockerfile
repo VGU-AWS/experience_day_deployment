@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
 
 WORKDIR /app
 
@@ -7,6 +7,6 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE 8080
 
-CMD ["uvicorn","app:app","--host","0.0.0.0","--port","8000"]
+CMD ["uvicorn","app:app","--host","0.0.0.0","--port","8080"]

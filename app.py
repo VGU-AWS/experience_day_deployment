@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException, UploadFile, Request
+from fastapi import FastAPI, HTTPException, UploadFile, Request, Response
 import base64
+from io import BytesIO
 
-import cv2
 import numpy as np
 import supervision as sv
 import torch
 import torch.nn.functional as F
+from PIL import Image
 from ultralytics import YOLO
 
 # Detect GPU availability
@@ -34,10 +35,14 @@ seg_model = YOLO(f"{seg_model_name}.pt")
 
 
 def _encode_png_mask(mask: np.ndarray) -> str:
-    ok, mask_buf = cv2.imencode(".png", mask)
-    if not ok:
-        raise HTTPException(status_code=500, detail="Failed to encode mask image")
-    return base64.b64encode(mask_buf).decode("utf-8")
+    try:
+        image = Image.fromarray(mask)
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Failed to encode mask image") from exc
+
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
 def _empty_response(image_shape: tuple[int, int]) -> dict:
@@ -55,11 +60,11 @@ def ping():
     return Response(status_code=200)
 
 @app.post("/invocations")
-async def invocations(request:Request):
+async def invocations(request: Request):
     image_bytes = await request.body()
-    img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
-
-    if img is None:
+    try:
+        img = np.array(Image.open(BytesIO(image_bytes)).convert("RGB"))
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid image payload")
 
     results = seg_model(img)

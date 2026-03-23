@@ -2,7 +2,6 @@ fastapi
 torch
 ultralytics
 supervision
-opencv-contrib-python
-opencv-python
+pillow
 numpy
 uvicorn

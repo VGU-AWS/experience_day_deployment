@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, UploadFile, Request, Response
 import base64
 from io import BytesIO
+import os
+from threading import Lock
 import uvicorn
 import numpy as np
 import supervision as sv
@@ -31,7 +33,19 @@ app = FastAPI()
 byte_tracker = sv.ByteTrack()
 byte_tracker.reset()
 seg_model_name = "yolo11l-seg"
-seg_model = YOLO(f"{seg_model_name}.pt")
+seg_model = None
+seg_model_lock = Lock()
+
+
+def _get_seg_model() -> YOLO:
+    global seg_model
+
+    if seg_model is None:
+        with seg_model_lock:
+            if seg_model is None:
+                seg_model = YOLO(f"{seg_model_name}.pt")
+
+    return seg_model
 
 
 def _encode_png_mask(mask: np.ndarray) -> str:
@@ -67,7 +81,8 @@ async def invocations(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image payload")
 
-    results = seg_model(img)
+    model = _get_seg_model()
+    results = model(img)
     boxes = results[0].boxes
     masks = results[0].masks
 

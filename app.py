@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, Request, Response
 import base64
 from io import BytesIO
-
+import uvicorn
 import numpy as np
 import supervision as sv
 import torch
@@ -119,3 +119,10 @@ async def invocations(request: Request):
 async def detect(file: UploadFile):
     """Backward-compatible alias for existing clients."""
     return await invocations(file)
+
+if __name__ == "__main__":
+    uvicorn.run(
+        app,
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "8080")),
+    )

@@ -5,6 +5,7 @@ from ultralytics import YOLO
 import torch
 import supervision as sv
 import torch.nn.functional as F
+import base64
 
 # Detect GPU availability
 if torch.cuda.is_available():
@@ -29,6 +30,10 @@ byte_tracker = sv.ByteTrack()
 byte_tracker.reset()
 seg_model_name = 'yolo11l-seg'
 seg_model = YOLO(f'{seg_model_name}.pt')
+
+@app.post("/ping")
+def ping():
+    return {"status":"ok"}
 
 @app.post("/detect")
 async def detect(file: UploadFile):
@@ -76,8 +81,13 @@ async def detect(file: UploadFile):
     masks_resized = F.interpolate(filtered_masks.unsqueeze(1).float(),
                     size=img.shape[::2] , mode="nearest").squeeze(1)
 
-    # COMBINE N masks into ONE mask using max (logical OR for binary masks)
-    combined_mask = (torch.max(masks_resized, dim=0).value).astype(torch.uint8)*255
-    
+    # COMBINE N masks into ONE mask using max (logical OR for binary masks) and convert base64 for easy transport
+    combined_mask = (torch.max(masks_resized, dim=0).value).astype(torch.uint8)*255    
+    _ , mask_buf = cv2.imencode(".png",combined_mask.cpu().numpy())
+    mask_base64 = base64.b64encode(mask_buf).decode("utf-8")
 
-    return {"mask": combined_mask.tolist(), "mask_inv": ((combined_mask==0).astype(torch.uint8)*255).tolist(), "locations": tracked_detections.xyxy.cpu().numpy().tolist()}
+    inv_mask = ((combined_mask==0).astype(torch.uint8)*255).cpu().numpy()
+    _ , mask_buf = cv2.imencode(".png",inv_mask)
+    inv_mask_base64 = base64.b64encode(mask_buf).decode("utf-8")    
+
+    return {"mask": mask_base64, "mask_inv": inv_mask_base64, "locations": tracked_detections.xyxy.cpu().numpy().tolist()}

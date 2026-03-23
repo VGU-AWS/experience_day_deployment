@@ -1,15 +1,14 @@
-from fastapi import FastAPI, HTTPException, UploadFile, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 import base64
 from io import BytesIO
 import os
 from threading import Lock
 import uvicorn
 import numpy as np
-import supervision as sv
 import torch
-import torch.nn.functional as F
 from PIL import Image
-from ultralytics import YOLO
+from transformers import AutoImageProcessor, SegformerForSemanticSegmentation
+
 
 # Detect GPU availability
 if torch.cuda.is_available():
@@ -30,22 +29,24 @@ else:
     print("No GPU available, using CPU")
 
 app = FastAPI()
-byte_tracker = sv.ByteTrack()
-byte_tracker.reset()
-seg_model_name = "yolo11l-seg"
-seg_model = None
-seg_model_lock = Lock()
+segformer_model_name = os.getenv("SEGFORMER_MODEL", "nvidia/segformer-b1-finetuned-ade-512-512")
+segformer_processor = None
+segformer_model = None
+segformer_lock = Lock()
 
 
-def _get_seg_model() -> YOLO:
-    global seg_model
+def _get_segformer() -> tuple[AutoImageProcessor, SegformerForSemanticSegmentation]:
+    global segformer_processor, segformer_model
 
-    if seg_model is None:
-        with seg_model_lock:
-            if seg_model is None:
-                seg_model = YOLO(f"{seg_model_name}.pt")
+    if segformer_processor is None or segformer_model is None:
+        with segformer_lock:
+            if segformer_processor is None or segformer_model is None:
+                segformer_processor = AutoImageProcessor.from_pretrained(segformer_model_name)
+                segformer_model = SegformerForSemanticSegmentation.from_pretrained(segformer_model_name)
+                segformer_model.to(device)
+                segformer_model.eval()
 
-    return seg_model
+    return segformer_processor, segformer_model
 
 
 def _encode_png_mask(mask: np.ndarray) -> str:
@@ -68,72 +69,68 @@ def _empty_response(image_shape: tuple[int, int]) -> dict:
         "locations": [],
     }
 
-#health check
+
+def _location_from_mask(person_mask: np.ndarray) -> list[list[int]]:
+    ys, xs = np.where(person_mask)
+    if xs.size == 0 or ys.size == 0:
+        return []
+
+    x1 = int(xs.min())
+    y1 = int(ys.min())
+    x2 = int(xs.max())
+    y2 = int(ys.max())
+    return [[x1, y1, x2, y2]]
+
+
+# health check
 @app.get("/ping")
 def ping():
     return Response(status_code=200)
+
 
 @app.post("/invocations")
 async def invocations(request: Request):
     image_bytes = await request.body()
     try:
-        img = np.array(Image.open(BytesIO(image_bytes)).convert("RGB"))
+        pil_image = Image.open(BytesIO(image_bytes)).convert("RGB")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image payload")
 
-    model = _get_seg_model()
-    results = model(img)
-    boxes = results[0].boxes
-    masks = results[0].masks
+    img = np.array(pil_image)
+    processor, model = _get_segformer()
 
-    if boxes is None or len(boxes) == 0:
+    with torch.no_grad():
+        inputs = processor(images=pil_image, return_tensors="pt")
+        pixel_values = inputs["pixel_values"].to(device)
+        outputs = model(pixel_values=pixel_values)
+        segmentation = processor.post_process_semantic_segmentation(
+            outputs,
+            target_sizes=[img.shape[:2]],
+        )[0]
+
+    # ADE20K person class id used by NVIDIA SegFormer checkpoints.
+    person_class_id = 12
+    person_mask = (segmentation == person_class_id).to(torch.uint8) * 255
+
+    if torch.count_nonzero(person_mask).item() == 0:
         return _empty_response(img.shape[:2])
 
-    class_ids = boxes.cls
-    scores = boxes.conf
-    xyxys = boxes.xyxy
-
-    confidence_threshold = 0.7
-    human_class_id = 0
-    valid_mask = (scores > confidence_threshold) & (class_ids == human_class_id)
-    valid_indices = torch.where(valid_mask)[0]
-
-    if valid_indices.numel() == 0 or masks is None:
-        return _empty_response(img.shape[:2])
-
-    filtered_class_ids = class_ids[valid_indices].to(torch.int16)
-    filtered_scores = scores[valid_indices]
-    filtered_xyxys = xyxys[valid_indices]
-    filtered_masks = masks.data[valid_indices]
-
-    detections = sv.Detections(
-        xyxy=filtered_xyxys.cpu().numpy(),
-        confidence=filtered_scores.cpu().numpy(),
-        class_id=filtered_class_ids.cpu().numpy(),
-    )
-
-    tracked_detections = byte_tracker.update_with_detections(detections)
-    masks_resized = F.interpolate(
-        filtered_masks.unsqueeze(1).float(),
-        size=img.shape[:2],
-        mode="nearest",
-    ).squeeze(1)
-
-    combined_mask = torch.max(masks_resized, dim=0).values.to(torch.uint8) * 255
-    combined_mask_np = combined_mask.cpu().numpy()
-    inv_mask_np = ((combined_mask == 0).to(torch.uint8) * 255).cpu().numpy()
+    combined_mask_np = person_mask.cpu().numpy().astype(np.uint8)
+    inv_mask_np = np.where(combined_mask_np == 0, 255, 0).astype(np.uint8)
+    locations = _location_from_mask(combined_mask_np > 0)
 
     return {
         "mask": _encode_png_mask(combined_mask_np),
         "mask_inv": _encode_png_mask(inv_mask_np),
-        "locations": tracked_detections.xyxy.tolist(),
+        "locations": locations,
     }
 
 
 @app.post("/detect")
-async def detect(file: UploadFile):
+async def detect(request: Request):
     """Backward-compatible alias for existing clients."""
-    return await invocations(file)
+    return await invocations(request)
+
 
 if __name__ == "__main__":
     uvicorn.run(

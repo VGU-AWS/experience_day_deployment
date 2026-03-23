@@ -49,11 +49,10 @@ def _empty_response(image_shape: tuple[int, int]) -> dict:
         "locations": [],
     }
 
-
+#health check
 @app.get("/ping")
 def ping():
     return {"status": "ok"}
-
 
 @app.post("/invocations")
 async def invocations(file: UploadFile):

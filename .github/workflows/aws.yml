@@ -12,7 +12,7 @@ env:
   SAGEMAKER_ENDPOINT_CONFIG_NAME: experienceday-vrapp-endpoint-config
   SAGEMAKER_ENDPOINT_NAME: experienceday-vrapp-endpoint
   SAGEMAKER_EXECUTION_ROLE_ARN: ${{ secrets.SAGEMAKER_EXECUTION_ROLE_ARN }}
-  SAGEMAKER_INSTANCE_TYPE: ml.g4dn.xlarge #T4
+  SAGEMAKER_INSTANCE_TYPE: ml.g5.xlarge #T4
   SAGEMAKER_INSTANCE_COUNT: '1'
 
 

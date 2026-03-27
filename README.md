@@ -8,6 +8,10 @@ SegFormer (NVIDIA, Hugging Face) inference service packaged for Amazon SageMaker
 - `POST /invocations` - primary SageMaker inference endpoint.
 - `POST /detect` - backward-compatible alias for existing clients.
 
+## Container runtime
+
+- Base image: `pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime` (known stable CUDA runtime on Ubuntu for GPU-backed web/SageMaker endpoint serving).
+
 ## Model
 
 - Default model: `nvidia/segformer-b1-finetuned-ade-512-512`
